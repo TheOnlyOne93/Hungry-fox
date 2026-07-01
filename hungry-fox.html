@@ -133,6 +133,22 @@
     color:#9c8c74; box-shadow:0 6px 0 #b3a58f;
   }
 
+  /* little utility buttons (pause + sound) tucked under the HUD, top-right */
+  .util-btns{
+    position:absolute; top:56px; right:14px; z-index:4;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .util-btn{
+    width:40px; height:40px; border-radius:50%;
+    border:none; cursor:pointer;
+    font-size:19px; line-height:1; background:#fff;
+    box-shadow:0 4px 10px -4px rgba(80,40,0,.4);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .06s ease;
+    touch-action:manipulation;
+  }
+  .util-btn:active{ transform:translateY(2px); }
+
   /* Overlay screens (start / game over) ------------------------- */
   .overlay{
     position:absolute; inset:0;
@@ -364,13 +380,29 @@
     <!-- pounce button (mostly for touch screens) -->
     <button class="pounce-btn ready" id="pounceBtn" aria-label="Pounce"><span>🐾</span></button>
 
+    <!-- little utility buttons: pause + sound (tap-friendly for the kiddo) -->
+    <div class="util-btns">
+      <button class="util-btn" id="pauseBtn" aria-label="Pause" title="Pause (P or Esc)">⏸️</button>
+      <button class="util-btn" id="soundBtn" aria-label="Sound on or off" title="Sound on/off">🔊</button>
+    </div>
+
+    <!-- Pause screen -->
+    <div class="overlay hidden" id="pauseScreen">
+      <div class="card">
+        <div style="font-size:52px;line-height:1;margin-bottom:4px">⏸️</div>
+        <h2>Paused</h2>
+        <p class="hint">Press <b>P</b> or <b>Esc</b> to keep playing</p>
+        <button class="play" id="resumeBtn">Keep playing</button>
+      </div>
+    </div>
+
     <!-- Start screen -->
     <div class="overlay" id="startScreen">
       <div class="card">
         <svg class="mascot" id="mascotSvg" viewBox="-30 -34 70 70"></svg>
         <h2>Hungry Fox</h2>
         <p>Catch mice to fill your energy. <b>Pounce</b> on the wolves to bonk them — and run from the big snake!</p>
-        <p class="hint">Move: <b>arrow keys</b> &nbsp;•&nbsp; Pounce: <b>SPACE</b><br>The keys light up as you press them!</p>
+        <p class="hint">Move: <b>arrow keys</b> &nbsp;•&nbsp; Pounce: <b>SPACE</b> &nbsp;•&nbsp; Pause: <b>P</b><br>The keys light up as you press them!</p>
         <div class="legend">
           <span class="lg"><b>🐭</b> Eat</span>
           <span class="lg"><b>🐺</b> Pounce</span>
@@ -450,8 +482,14 @@ const CONFIG = {
   dynHigh:  1.12,   // predator speed when his energy is full (a fun little push)
   dynEase:  8,      // how slowly it shifts, in seconds — bigger = subtler
 
+  // 🌟 combo streak — quick catches in a row show a fun ×2, ×3 … multiplier
+  //    (sneaky multiplication practice) and cheer at milestones. Never a penalty.
+  comboWindow:   2.5,   // seconds you have to grab the next mouse to keep the streak
+  comboBonus:    5,     // extra points per streak step (×2 = +5, ×3 = +10, …)
+  comboMax:      10,    // the streak stops climbing here — a tidy "max combo" to chase
+
   screenShake:   true,  // little camera shake on big hits
-  sound:         true,  // set to false for a silent game
+  sound:         true,  // starting sound setting (the 🔊 button can change it in-game)
 };
 
 // Sprite colours — change these to recolour everything!
@@ -729,6 +767,8 @@ const foxLayer  = document.getElementById('foxLayer');
 const fxLayer   = document.getElementById('fxLayer');
 const gameWrap  = document.querySelector('.game-wrap');
 const pounceBtn = document.getElementById('pounceBtn');
+const pauseBtn  = document.getElementById('pauseBtn');
+const soundBtn  = document.getElementById('soundBtn');
 
 const scoreEl  = document.getElementById('score');
 const bestEl   = document.getElementById('best');
@@ -747,11 +787,15 @@ const kgSpace = document.querySelector('.kg-space');
 const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let state = 'start';            // 'start' | 'playing' | 'over'
+let paused = false;             // is the game paused mid-play?
 let score = 0, best = 0, energy = CONFIG.energyMax;
 let lastT = 0, animT = 0;
 let lastMilestone = 0;
 let shakeMag = 0;
 let dyn = 1;                    // predator speed multiplier (rubber-band difficulty)
+let combo = 0, comboTimer = 0;  // eat-streak counter + its countdown
+let soundOn = CONFIG.sound;     // runtime sound switch (remembered between visits)
+const SOUND_KEY = 'hungryFoxSound';
 
 const fox = { x:W/2, y:H/2, vx:0, vy:0, el:null, invuln:0,
               dir:{ x:1, y:0 }, pounceTimer:0, pounceCd:0, dustT:0 };
@@ -794,6 +838,16 @@ function init(){
   document.getElementById('againBtn').addEventListener('click', startGame);
   pounceBtn.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pounce(); });
 
+  // pause + sound controls
+  pauseBtn.addEventListener('click', () => togglePause());
+  soundBtn.addEventListener('click', toggleSound);
+  document.getElementById('resumeBtn').addEventListener('click', () => togglePause(false));
+  document.getElementById('pauseScreen').addEventListener('click', () => togglePause(false));
+
+  // restore the saved sound choice (falls back to the CONFIG default)
+  try { const s = localStorage.getItem(SOUND_KEY); if (s !== null) soundOn = s === '1'; } catch(_){}
+  soundBtn.textContent = soundOn ? '🔊' : '🔇';
+
   // leaderboard: save a high score by name (Enter or the Save button)
   document.getElementById('saveScore').addEventListener('click', saveCurrentScore);
   const nameInput = document.getElementById('nameInput');
@@ -817,7 +871,10 @@ function init(){
   addEventListener('keyup',   e => onKey(e, false));
   // if the window loses focus (alt-tab, click away) we can miss the keyup,
   // which would leave a key "stuck" — so clear them all when that happens
-  addEventListener('blur', () => { keys.up = keys.down = keys.left = keys.right = false; });
+  addEventListener('blur', () => {
+    keys.up = keys.down = keys.left = keys.right = false;
+    if (state === 'playing') togglePause(true);   // wait politely while he's away
+  });
 
   // pointer / touch — drag to steer the fox
   svgEl.addEventListener('pointerdown', onPointer);
@@ -837,9 +894,13 @@ function onKey(e, down){
     case 'arrowdown':  case 's': keys.down = down; break;
     case 'arrowleft':  case 'a': keys.left = down; break;
     case 'arrowright': case 'd': keys.right = down; break;
+    case 'p': case 'escape':
+      if (down) togglePause();
+      return;
     case ' ': case 'enter':
       if (down){
         if (state !== 'playing') startGame();
+        else if (paused) togglePause(false);    // space/enter also un-pauses
         else if (k === ' ') pounce();           // space pounces during play
       }
       break;
@@ -871,7 +932,7 @@ function nearestWolf(){
 }
 
 function pounce(){
-  if (state !== 'playing' || fox.pounceTimer > 0 || fox.pounceCd > 0) return;
+  if (state !== 'playing' || paused || fox.pounceTimer > 0 || fox.pounceCd > 0) return;
 
   // aim where you're moving; if standing still, aim at the nearest wolf (helps young players!)
   let dx = fox.dir.x, dy = fox.dir.y;
@@ -900,6 +961,30 @@ function updatePounceUI(){
   } else {
     pounceBtn.classList.remove('cooling');
     pounceBtn.classList.add('ready');
+  }
+}
+
+
+// =====================  PAUSE + SOUND TOGGLES  =====================
+// pause only means anything mid-play; force=true/false to set it directly
+function togglePause(force){
+  if (state !== 'playing') return;
+  const next = (force === undefined) ? !paused : force;
+  if (next === paused) return;
+  paused = next;
+  document.getElementById('pauseScreen').classList.toggle('hidden', !paused);
+  pauseBtn.textContent = paused ? '▶️' : '⏸️';
+}
+
+function toggleSound(){
+  soundOn = !soundOn;
+  try { localStorage.setItem(SOUND_KEY, soundOn ? '1' : '0'); } catch(_){}
+  soundBtn.textContent = soundOn ? '🔊' : '🔇';
+  if (soundOn){
+    // make sure the audio is awake, then give a tiny confirmation blip
+    if (!actx){ try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(_){} }
+    if (actx && actx.state === 'suspended') actx.resume();
+    beep(700, .08, 'triangle', .07);
   }
 }
 
@@ -1029,7 +1114,7 @@ function shake(m){
 // =====================  AUDIO (tiny, no files)  =====================
 let actx = null;
 function beep(freq, dur, type, vol){
-  if (!CONFIG.sound || !actx) return;
+  if (!soundOn || !actx) return;
   const o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.value = freq;
   o.connect(g); g.connect(actx.destination);
@@ -1039,7 +1124,7 @@ function beep(freq, dur, type, vol){
   o.start(t); o.stop(t + dur);
 }
 function noiseHiss(dur, vol){
-  if (!CONFIG.sound || !actx) return;
+  if (!soundOn || !actx) return;
   const n = Math.floor(actx.sampleRate * dur);
   const buf = actx.createBuffer(1, n, actx.sampleRate);
   const data = buf.getChannelData(0);
@@ -1246,7 +1331,7 @@ function updateMath(dt){
 // =====================  START / END  =====================
 function startGame(){
   // wake up audio (needs a user gesture, which this click is)
-  if (CONFIG.sound && !actx){
+  if (soundOn && !actx){
     try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(_) {}
   }
   if (actx && actx.state === 'suspended') actx.resume();
@@ -1269,6 +1354,10 @@ function startGame(){
   berryTimer = CONFIG.berryEvery;
   shakeMag = 0; gameWrap.style.transform = '';
   dyn = 1;
+  combo = 0; comboTimer = 0;
+  paused = false;
+  document.getElementById('pauseScreen').classList.add('hidden');
+  pauseBtn.textContent = '⏸️';
   fox.x = W/2; fox.y = H/2; fox.vx = fox.vy = 0; fox.invuln = 0;
   fox.pounceTimer = 0; fox.pounceCd = 0; fox.dir.x = 1; fox.dir.y = 0;
 
@@ -1319,7 +1408,7 @@ function loop(t){
   const dt = Math.min(0.05, (t - lastT) / 1000 || 0); // seconds, capped so tab-switches don't jump
   lastT = t;
 
-  if (state === 'playing') update(dt);
+  if (state === 'playing' && !paused) update(dt);
   updateClouds(dt);          // clouds drift across the sky, always
   updateButterflies(dt);     // butterflies flutter even on the menus
   updateKeyGuide();          // light up the keys he's pressing
@@ -1361,6 +1450,9 @@ function update(dt){
   // hunger
   energy -= CONFIG.energyDrain * dt;
   if (fox.invuln > 0) fox.invuln -= dt;
+
+  // the eat-streak quietly fades if he doesn't grab another mouse in time
+  if (comboTimer > 0){ comboTimer -= dt; if (comboTimer <= 0) combo = 0; }
 
   // grow the challenge a little as the score climbs
   const wantWolves = Math.min(
@@ -1462,13 +1554,29 @@ function moveMice(dt){
 
     // eaten? (a slightly forgiving catch radius so near-misses still count)
     if (dist2(m.x, m.y, fox.x, fox.y) < 28*28){
+      const prevCombo = combo;
+      combo = Math.min(combo + 1, CONFIG.comboMax);           // climbs, then holds at the cap
+      comboTimer = CONFIG.comboWindow;
+      let gained = CONFIG.mousePoints;
+      if (combo >= 2){
+        gained += CONFIG.comboBonus * (combo - 1);           // the streak sweetener
+        floatText(m.x, m.y - 14, '+' + gained + ' ×' + combo, '#ffe08a');
+      } else {
+        floatText(m.x, m.y - 14, '+' + gained, '#ffd9a0');
+      }
       sparkle(m.x, m.y);
-      floatText(m.x, m.y - 14, '+' + CONFIG.mousePoints, '#ffd9a0');
       m.el.remove();
       mice.splice(i, 1);
-      score += CONFIG.mousePoints;
+      score += gained;
       energy = Math.min(CONFIG.energyMax, energy + CONFIG.mouseEnergy);
       sndEat();
+      // a happy little cheer at streak milestones (only when it actually climbs,
+      // so holding at the cap doesn't spam — and it only ever resets, never hurts)
+      if (combo !== prevCombo && (combo === 3 || combo === 5 || combo === CONFIG.comboMax)){
+        showToast('🔥 Combo ×' + combo + '!');
+        starBurst(fox.x, fox.y - 10);
+        sndBerry();
+      }
       addMouse();   // keep the meadow stocked
     }
   }
