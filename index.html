@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hungry Fox</title>
+<!--
+  This little page just sends you straight to the game.
+  The actual game lives in  hungry-fox.html  — that's the file
+  we tinker on together. This page exists so the plain web address
+  (the GitHub Pages link) opens the game with no extra clicks.
+-->
+<meta http-equiv="refresh" content="0; url=hungry-fox.html">
+<link rel="canonical" href="hungry-fox.html">
+<style>
+  html,body{ height:100%; margin:0; }
+  body{
+    font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background:radial-gradient(120% 90% at 50% -10%, #ffe6c2, #ffd39a 55%, #ffbf80 100%);
+    color:#3a2b1f;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; text-align:center; padding:20px;
+  }
+  a{ color:#e26f2c; font-weight:700; }
+</style>
+</head>
+<body>
+  <div style="font-size:52px">🦊</div>
+  <p>Loading <b>Hungry Fox</b>…</p>
+  <p>If it doesn't start, <a href="hungry-fox.html">tap here to play</a>.</p>
+  <script>
+    // belt-and-braces: jump to the game even if the meta refresh is ignored
+    location.replace('hungry-fox.html');
+  </script>
+</body>
+</html>
