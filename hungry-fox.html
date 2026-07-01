@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Hungry Fox</title>
 
 <!-- Playful rounded font. If it doesn't load, we fall back to a system font. -->
@@ -38,7 +38,11 @@
     --accent-dk:  #e26f2c;
     --sky-1:      #ffe6c2;
     --sky-2:      #ffd39a;
+    --chrome:     180px;      /* vertical space the page uses around the game */
   }
+  /* smaller / squished screens leave less room for page chrome */
+  @media (max-width:600px){ :root{ --chrome:118px; } }
+  @media (max-height:520px){ :root{ --chrome:92px; } }
 
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
@@ -53,25 +57,31 @@
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    gap:14px;
-    padding:18px;
+    gap:12px;
     min-height:100%;
+    min-height:100svh;
+    padding-top:max(12px, env(safe-area-inset-top));
+    padding-bottom:max(12px, env(safe-area-inset-bottom));
+    padding-left:max(12px, env(safe-area-inset-left));
+    padding-right:max(12px, env(safe-area-inset-right));
   }
 
   h1.page-title{
     margin:0;
     font-weight:700;
-    font-size:clamp(26px, 6vw, 40px);
+    font-size:clamp(20px, 5.4vw, 40px);
     letter-spacing:.5px;
     color:var(--ink);
     text-shadow:0 2px 0 #fff4;
   }
-  .page-sub{ margin:-6px 0 0; font-weight:500; opacity:.75; font-size:15px; }
+  .page-sub{ margin:-4px 0 0; font-weight:500; opacity:.75; font-size:clamp(12px, 3vw, 15px); }
 
   /* The play area: a rounded "window" into the meadow ----------- */
   .game-wrap{
     position:relative;
+    /* largest 8:5 box that fits the screen (falls back gracefully on old browsers) */
     width:min(860px, 100%);
+    width:min(100%, 860px, calc((100svh - var(--chrome)) * 1.6));
     aspect-ratio:8 / 5;
     border-radius:24px;
     overflow:hidden;
@@ -149,15 +159,18 @@
   }
   .util-btn:active{ transform:translateY(2px); }
 
-  /* Overlay screens (start / game over) ------------------------- */
+  /* Overlay screens (start / game over) — full-screen so cards never get clipped */
   .overlay{
-    position:absolute; inset:0;
+    position:fixed; inset:0;
     display:flex; align-items:center; justify-content:center;
-    background:rgba(58,43,31,.45);
+    background:rgba(58,43,31,.5);
     backdrop-filter:blur(2px);
-    padding:18px;
+    padding:16px;
+    padding-top:max(16px, env(safe-area-inset-top));
+    padding-bottom:max(16px, env(safe-area-inset-bottom));
     text-align:center;
-    z-index:5;
+    overflow:auto;
+    z-index:20;
   }
   .overlay.hidden{ display:none; }
   .card{
@@ -167,6 +180,8 @@
     padding:26px 28px 30px;
     max-width:370px;
     width:100%;
+    max-height:calc(100svh - 32px);
+    overflow-y:auto;
     box-shadow:0 20px 50px -12px rgba(60,30,0,.5);
     animation:pop .35s cubic-bezier(.2,1.4,.5,1) both;
   }
@@ -278,6 +293,65 @@
   .save-btn:disabled{ background:#86c46e; box-shadow:0 4px 0 #6fa85a; cursor:default; transform:none; }
   .name-row input:disabled{ opacity:.65; }
 
+  /* a small "reset scores" link under the leaderboard */
+  .reset-scores{
+    display:block; margin:8px auto 0;
+    font-family:inherit; font-weight:600; font-size:12.5px;
+    color:#b0703f; background:none; border:none; cursor:pointer;
+    text-decoration:underline; opacity:.8; padding:4px 8px;
+    touch-action:manipulation;
+  }
+  .reset-scores:active{ opacity:1; }
+
+  /* touch devices drag to move, so hide the keyboard hints/guide there */
+  .hint-touch{ display:none; }
+  @media (pointer:coarse){
+    .keyguide{ display:none; }
+    .hint-keys{ display:none; }
+    .hint-touch{ display:block; }
+  }
+
+  /* ---------- phones & squished windows ---------- */
+  @media (max-width:600px), (max-height:520px){
+    .game-wrap{
+      border-radius:16px;
+      box-shadow:0 10px 24px -10px rgba(120,70,20,.45), 0 0 0 4px #fff, 0 0 0 6px var(--panel-edge);
+    }
+    .page-sub, .footnote{ display:none; }
+
+    .card{ padding:18px 18px 22px; border-radius:18px; }
+    .card h2{ font-size:22px; }
+    .card p{ font-size:13.5px; margin:.3em 0; line-height:1.4; }
+    .card .hint{ font-size:12.5px; }
+    .card .mascot{ width:72px; height:72px; }
+    .card .big-num{ font-size:38px; }
+    button.play{ font-size:17px; padding:11px 30px; margin-top:12px; }
+    .legend{ gap:6px; margin:8px 0 2px; }
+    .legend .lg{ font-size:12px; padding:4px 8px; }
+    .legend .lg b{ font-size:14px; }
+    .lb-title{ margin:10px 0 0; font-size:13px; }
+    .leaderboard li{ padding:5px 10px; font-size:14px; }
+
+    .hud{ padding:8px; gap:6px; }
+    .pill{ font-size:12px; padding:5px 9px; gap:4px; }
+    .energy{ padding:6px 9px; gap:3px; max-width:none; }
+    .energy .row{ font-size:11px; }
+    .track{ height:10px; }
+
+    .pounce-btn{ width:56px; height:56px; font-size:25px; right:12px; bottom:12px; }
+    .util-btns{ top:48px; right:10px; gap:6px; }
+    .util-btn{ width:34px; height:34px; font-size:16px; }
+
+    .math-banner{ font-size:16px; padding:6px 14px; top:46px; }
+    .toast{ font-size:13px; padding:7px 13px; top:46px; }
+  }
+
+  /* very narrow: drop the label words (keep the emoji) so the HUD never overflows */
+  @media (max-width:410px){
+    .pill .lw{ display:none; }
+    .pill{ gap:3px; }
+  }
+
   @media (prefers-reduced-motion: reduce){
     .card{ animation:none; }
     .pounce-btn.ready{ animation:none; }
@@ -352,12 +426,12 @@
 
     <!-- HUD -->
     <div class="hud">
-      <div class="pill score"><span class="label">⭐ Score</span><span class="num" id="score">0</span></div>
+      <div class="pill score"><span class="label">⭐ <span class="lw">Score</span></span><span class="num" id="score">0</span></div>
       <div class="pill energy">
-        <div class="row"><span class="label">⚡ Energy</span><span id="energyPct">100%</span></div>
+        <div class="row"><span class="label">⚡ <span class="lw">Energy</span></span><span id="energyPct">100%</span></div>
         <div class="track"><div id="energyFill"></div></div>
       </div>
-      <div class="pill best"><span class="label">🏆 Best</span><span class="num" id="best">0</span></div>
+      <div class="pill best"><span class="label">🏆 <span class="lw">Best</span></span><span class="num" id="best">0</span></div>
     </div>
 
     <!-- little pop-up announcement (e.g. "a snake appeared!") -->
@@ -386,49 +460,54 @@
       <button class="util-btn" id="soundBtn" aria-label="Sound on or off" title="Sound on/off">🔊</button>
     </div>
 
-    <!-- Pause screen -->
-    <div class="overlay hidden" id="pauseScreen">
-      <div class="card">
-        <div style="font-size:52px;line-height:1;margin-bottom:4px">⏸️</div>
-        <h2>Paused</h2>
-        <p class="hint">Press <b>P</b> or <b>Esc</b> to keep playing</p>
-        <button class="play" id="resumeBtn">Keep playing</button>
-      </div>
-    </div>
+  </div>
 
-    <!-- Start screen -->
-    <div class="overlay" id="startScreen">
-      <div class="card">
-        <svg class="mascot" id="mascotSvg" viewBox="-30 -34 70 70"></svg>
-        <h2>Hungry Fox</h2>
-        <p>Catch mice to fill your energy. <b>Pounce</b> on the wolves to bonk them — and run from the big snake!</p>
-        <p class="hint">Move: <b>arrow keys</b> &nbsp;•&nbsp; Pounce: <b>SPACE</b> &nbsp;•&nbsp; Pause: <b>P</b><br>The keys light up as you press them!</p>
-        <div class="legend">
-          <span class="lg"><b>🐭</b> Eat</span>
-          <span class="lg"><b>🐺</b> Pounce</span>
-          <span class="lg"><b>🐍</b> Run!</span>
-        </div>
-        <p class="lb-title" id="startLbTitle">🏆 Top Foxes</p>
-        <ol class="leaderboard" id="startLeaderboard"></ol>
-        <button class="play" id="startBtn">Play</button>
-      </div>
+  <!-- Pause screen -->
+  <div class="overlay hidden" id="pauseScreen">
+    <div class="card">
+      <div style="font-size:52px;line-height:1;margin-bottom:4px">⏸️</div>
+      <h2>Paused</h2>
+      <p class="hint hint-keys">Press <b>P</b> or <b>Esc</b> to keep playing</p>
+      <p class="hint hint-touch">Tap <b>Keep playing</b> to jump back in</p>
+      <button class="play" id="resumeBtn">Keep playing</button>
     </div>
+  </div>
 
-    <!-- Game over screen -->
-    <div class="overlay hidden" id="overScreen">
-      <div class="card">
-        <h2 id="overTitle">Out of energy!</h2>
-        <p class="hint">You scored</p>
-        <div class="big-num" id="finalScore">0</div>
-        <div class="name-row hidden" id="nameRow">
-          <input id="nameInput" maxlength="12" placeholder="Type your name" autocomplete="off" spellcheck="false">
-          <button class="save-btn" id="saveScore">Save</button>
-        </div>
-        <p class="lb-title">🏆 Top Foxes</p>
-        <ol class="leaderboard" id="leaderboard"></ol>
-        <button class="play" id="againBtn">Play again</button>
-        <p class="hint" style="margin:10px 0 0">or press <b>Enter</b></p>
+  <!-- Start screen -->
+  <div class="overlay" id="startScreen">
+    <div class="card">
+      <svg class="mascot" id="mascotSvg" viewBox="-30 -34 70 70"></svg>
+      <h2>Hungry Fox</h2>
+      <p>Catch mice to fill your energy. <b>Pounce</b> on the wolves to bonk them — and run from the big snake!</p>
+      <p class="hint hint-touch"><b>Drag</b> on the meadow to move &nbsp;•&nbsp; Tap <b>🐾</b> to pounce</p>
+      <p class="hint hint-keys">Move: <b>arrow keys</b> &nbsp;•&nbsp; Pounce: <b>SPACE</b> &nbsp;•&nbsp; Pause: <b>P</b><br>The keys light up as you press them!</p>
+      <div class="legend">
+        <span class="lg"><b>🐭</b> Eat</span>
+        <span class="lg"><b>🐺</b> Pounce</span>
+        <span class="lg"><b>🐍</b> Run!</span>
       </div>
+      <p class="lb-title" id="startLbTitle">🏆 Top Foxes</p>
+      <ol class="leaderboard" id="startLeaderboard"></ol>
+      <button class="reset-scores" id="resetStart" type="button">🗑️ Reset scores</button>
+      <button class="play" id="startBtn">Play</button>
+    </div>
+  </div>
+
+  <!-- Game over screen -->
+  <div class="overlay hidden" id="overScreen">
+    <div class="card">
+      <h2 id="overTitle">Out of energy!</h2>
+      <p class="hint">You scored</p>
+      <div class="big-num" id="finalScore">0</div>
+      <div class="name-row hidden" id="nameRow">
+        <input id="nameInput" maxlength="12" placeholder="Type your name" autocomplete="off" spellcheck="false">
+        <button class="save-btn" id="saveScore">Save</button>
+      </div>
+      <p class="lb-title">🏆 Top Foxes</p>
+      <ol class="leaderboard" id="leaderboard"></ol>
+      <button class="reset-scores" id="resetOver" type="button">🗑️ Reset scores</button>
+      <button class="play" id="againBtn">Play again</button>
+      <p class="hint hint-keys" style="margin:10px 0 0">or press <b>Enter</b></p>
     </div>
   </div>
 
@@ -861,10 +940,11 @@ function init(){
     'stroke-dasharray':'5 8', 'stroke-linecap':'round', opacity:'0' });
   document.getElementById('hintLayer').appendChild(goRing);
 
-  // show saved high scores on the start card (if there are any yet)
-  const startLb = document.getElementById('startLeaderboard');
-  if (loadScores().length){ renderLeaderboard(startLb, -1); }
-  else { startLb.style.display = 'none'; document.getElementById('startLbTitle').style.display = 'none'; }
+  // tidy away the old pre-relaunch scores, then show the current ones (if any)
+  try { localStorage.removeItem('hungryFoxScores'); } catch(_){}
+  refreshStartLb();
+  document.getElementById('resetStart').addEventListener('click', resetScores);
+  document.getElementById('resetOver').addEventListener('click', resetScores);
 
   // keyboard
   addEventListener('keydown', e => onKey(e, true));
@@ -1170,7 +1250,8 @@ function updateGoRing(){
 
 
 // =====================  LEADERBOARD (saved in the browser)  =====================
-const LB_KEY = 'hungryFoxScores', NAME_KEY = 'hungryFoxName', LB_MAX = 5;
+// bumped to _v2 for the mobile relaunch: old (pre-combo-cap) scores start fresh
+const LB_KEY = 'hungryFoxScores_v2', NAME_KEY = 'hungryFoxName', LB_MAX = 5;
 let savedThisRound = false;
 
 function loadScores(){
@@ -1225,7 +1306,31 @@ function saveCurrentScore(){
   input.disabled = true;
   btn.disabled = true; btn.textContent = 'Saved ✓';
   renderLeaderboard(document.getElementById('leaderboard'), idx);
+  document.getElementById('resetOver').style.display = '';   // there's now a score to clear
   document.getElementById('againBtn').focus();   // now Enter starts the next round
+}
+
+// ---- clearing high scores (an easy, kid-proof reset) ----
+function haveScores(){ return loadScores().length > 0; }
+
+// on the start card we tuck the whole leaderboard away when it's empty
+function refreshStartLb(){
+  const has   = haveScores();
+  const lb    = document.getElementById('startLeaderboard');
+  const title = document.getElementById('startLbTitle');
+  const reset = document.getElementById('resetStart');
+  lb.style.display = title.style.display = reset.style.display = has ? '' : 'none';
+  if (has) renderLeaderboard(lb, -1);
+}
+
+function resetScores(){
+  if (!haveScores()) return;
+  if (!confirm('Erase ALL the high scores and start fresh?')) return;
+  try { localStorage.removeItem(LB_KEY); } catch(_){}
+  refreshStartLb();
+  // if the game-over card happens to be open, tidy it too
+  renderLeaderboard(document.getElementById('leaderboard'), -1);
+  document.getElementById('resetOver').style.display = 'none';
 }
 
 
@@ -1397,6 +1502,7 @@ function gameOver(){
     nameRow.classList.add('hidden');
   }
   renderLeaderboard(document.getElementById('leaderboard'), -1);
+  document.getElementById('resetOver').style.display = haveScores() ? '' : 'none';
 
   document.getElementById('overScreen').classList.remove('hidden');
   sndOver();
