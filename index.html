@@ -6,12 +6,23 @@
 <title>Hungry Fox</title>
 <!--
   This little page just sends you straight to the game.
-  The actual game lives in  hungry-fox.html  — that's the file
-  we tinker on together. This page exists so the plain web address
-  (the GitHub Pages link) opens the game with no extra clicks.
+
+  It also fixes "stale game" problems: phones & tablets love to hang on
+  to an old copy of a web page. So instead of opening  hungry-fox.html
+  plainly, we open it with a one-time  ?v=<timestamp>  tag on the end.
+  The browser sees a brand-new address every launch, so it can't hand
+  back a cached old version — your son always gets the newest game with
+  nothing to clear or refresh.
+
+  The real game still lives in  hungry-fox.html  — that's the single
+  file we tinker on together.
 -->
-<meta http-equiv="refresh" content="0; url=hungry-fox.html">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <link rel="canonical" href="hungry-fox.html">
+<!-- no-JS fallback: still gets you into the game -->
+<noscript><meta http-equiv="refresh" content="0; url=hungry-fox.html"></noscript>
 <style>
   html,body{ height:100%; margin:0; }
   body{
@@ -27,10 +38,12 @@
 <body>
   <div style="font-size:52px">🦊</div>
   <p>Loading <b>Hungry Fox</b>…</p>
-  <p>If it doesn't start, <a href="hungry-fox.html">tap here to play</a>.</p>
+  <p>If it doesn't start, <a id="playLink" href="hungry-fox.html">tap here to play</a>.</p>
   <script>
-    // belt-and-braces: jump to the game even if the meta refresh is ignored
-    location.replace('hungry-fox.html');
+    // Always fetch a fresh copy of the game (beats phone/tablet caching).
+    var fresh = 'hungry-fox.html?v=' + Date.now();
+    document.getElementById('playLink').href = fresh;   // manual link is fresh too
+    location.replace(fresh);
   </script>
 </body>
 </html>
